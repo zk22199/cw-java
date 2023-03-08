@@ -17,7 +17,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			GameSetup setup,
 			Player mrX,
 			ImmutableList<Player> detectives) {
-		// TODO
+
+
+		// GAME STATE CREATION TESTS:
+		if (mrX == null) throw new NullPointerException();
+		if (detectives.contains(null)) throw new NullPointerException();
+		if (mrX.isDetective()) throw new IllegalArgumentException();
+
+
 		throw new RuntimeException("Implement me!");
 
 	}
