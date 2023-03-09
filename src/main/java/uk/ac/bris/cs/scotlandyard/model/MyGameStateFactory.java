@@ -4,8 +4,11 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
+import com.google.common.collect.ImmutableSet;
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
+
+import java.util.Optional;
 
 /**
  * cw-model
@@ -19,11 +22,19 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			ImmutableList<Player> detectives) {
 
 
-		// GAME STATE CREATION TESTS:
-		if (mrX == null) throw new NullPointerException();
-		if (detectives.contains(null)) throw new NullPointerException();
-		if (mrX.isDetective()) throw new IllegalArgumentException();
+		// PRE GAME STATE CREATION TESTS:
+		if (mrX == null) throw new NullPointerException();    				// check mrX not null
+		if (detectives.contains(null)) throw new NullPointerException();  	// check no detective is null
+		if (mrX.isDetective()) throw new IllegalArgumentException();   		// check mrX is not a detective
+		// check ticket allocation
+		for (Player detective : detectives) {
+			if (detective.has(ScotlandYard.Ticket.SECRET) || detective.has(ScotlandYard.Ticket.DOUBLE)) throw new IllegalArgumentException();
+		}
 
+
+		// GAME STATE CREATION:
+		//GameState nextGameState = new GameState(); 						// contains 8 methods to implement
+		//return nextGameState;
 
 		throw new RuntimeException("Implement me!");
 
