@@ -26,10 +26,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		if (mrX == null) throw new NullPointerException();    				// check mrX not null
 		if (detectives.contains(null)) throw new NullPointerException();  	// check no detective is null
 		if (mrX.isDetective()) throw new IllegalArgumentException();   		// check mrX is not a detective
-		// check ticket allocation
-		for (Player detective : detectives) {
-			if (detective.has(ScotlandYard.Ticket.SECRET) || detective.has(ScotlandYard.Ticket.DOUBLE)) throw new IllegalArgumentException();
-		}
+		for (Player detective : detectives) { 								// check ticket allocation
+			if (detective.has(ScotlandYard.Ticket.SECRET) || detective.has(ScotlandYard.Ticket.DOUBLE)) throw new IllegalArgumentException();    }
 		if (mrX.has(ScotlandYard.Ticket.TAXI) || mrX.has(ScotlandYard.Ticket.BUS) || mrX.has(ScotlandYard.Ticket.UNDERGROUND)) throw new IllegalArgumentException();
 
 
