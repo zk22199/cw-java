@@ -30,6 +30,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		for (Player detective : detectives) {
 			if (detective.has(ScotlandYard.Ticket.SECRET) || detective.has(ScotlandYard.Ticket.DOUBLE)) throw new IllegalArgumentException();
 		}
+		if (mrX.has(ScotlandYard.Ticket.TAXI) || mrX.has(ScotlandYard.Ticket.BUS) || mrX.has(ScotlandYard.Ticket.UNDERGROUND)) throw new IllegalArgumentException();
 
 
 		// GAME STATE CREATION:
