@@ -2,12 +2,14 @@ package uk.ac.bris.cs.scotlandyard.model;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.util.*;
+import javax.annotation.Nonnull;
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
+import uk.ac.bris.cs.scotlandyard.model.Move.*;
+import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.*;
 import uk.ac.bris.cs.scotlandyard.model.Piece.Detective;
 import uk.ac.bris.cs.scotlandyard.model.Piece.MrX;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -184,9 +186,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// TODO find out if destination is occupied by a detective
 			//  if the location is occupied, don't add to the collection of moves to return
 
-			for (Player d : detectives) {
+			for (Player a : detectives) {
 
-				if (d.location() == destination) {
+				if (a.location() == destination) {
 
 				} else {
 
@@ -204,7 +206,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 						// TODO consider the rules of secret moves here
 						//  add moves to the destination via a secret ticket if there are any left with the player
 
-						if (d.has(Ticket.SECRET)) {
+						if (a.has(Ticket.SECRET)) {
 
 							singleMoves.add(new SingleMove(player.piece(), source, Ticket.SECRET, destination));
 
@@ -228,50 +230,55 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 	private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source) {
 
-		// TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
+		// TODO create an empty collection of some sort, say, HashSet, to store all the DoubleMove we generate
 
-		HashSet<DoubleMove> singleMoves = new HashSet();
+		HashSet<DoubleMove> doubleMoves = new HashSet();
 
-		for (int destination : setup.graph.adjacentNodes(source)) {
+		int movesLeft = setup.moves.size();
 
-			// TODO find out if destination is occupied by a detective
-			//  if the location is occupied, don't add to the collection of moves to return
+		if (player.has(Ticket.DOUBLE) && (movesLeft > 1)) {
 
-			for (Player d : detectives) {
+			for (int destination1 : setup.graph.adjacentNodes(source)) {
 
-				if (d.location() == destination) {
+				for (int destination2 : setup.graph.adjacentNodes(source)) {
 
-				} else {
+					for (Player a : detectives) {
 
-					for (Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of())) {
-
-						// TODO find out if the player has the required tickets
-						// if it does, construct a SingleMove and add it the collection of moves to return
-
-						if (player.has(t.requiredTicket())) {
-
-							doubleMoves.add(new DoubleMove(player.piece(), source, t.requiredTicket(), destination));
+						if ((a.location() == destination1) || (a.location() == destination2)) {
 
 						}
+
+						else {
+
+							for (Transport t1 : setup.graph.edgeValueOrDefault(source, destination1, ImmutableSet.of())) {
+
+								for (Transport t2 : setup.graph.edgeValueOrDefault(source, destination2, ImmutableSet.of())) {
+
+									if ((player.has(t1.requiredTicket())) && (player.has(t2.requiredTicket()))) {
+
+										if (t1.requiredTicket().equals(t2.requiredTicket())) {
+
+//											if (a.hasAtLeast(t1.requiredTicket()
+
+											doubleMoves.add(new DoubleMove(player.piece(), source, t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+
+										}
+									}
+								}
+							}
+
+						}
+					}
+				}
+			}
+		}
 
 						// TODO consider the rules of secret moves here
 						//  add moves to the destination via a secret ticket if there are any left with the player
 
-						if (d.has(Ticket.SECRET)) {
+//						if (a.has(Ticket.SECRET)) {
 
-							doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, destination));
-
-						}
-
-						// TODO return the collection of moves
-
-					}
-
-				}
-
-			}
-
-		}
+//							doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, destination1, destination2));
 
 		return doubleMoves;
 
@@ -280,5 +287,3 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 
 }
-
-
