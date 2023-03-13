@@ -246,9 +246,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 						if ((a.location() == destination1) || (a.location() == destination2)) {
 
-						}
-
-						else {
+						} else {
 
 							for (Transport t1 : setup.graph.edgeValueOrDefault(source, destination1, ImmutableSet.of())) {
 
@@ -258,32 +256,40 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 										if (t1.requiredTicket().equals(t2.requiredTicket())) {
 
-//											if (a.hasAtLeast(t1.requiredTicket()
+											if (a.hasAtLeast(t1.requiredTicket(), 2)) {
+
+												doubleMoves.add(new DoubleMove(player.piece(), source, t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+
+											}
+										}
+
+										if (t1.requiredTicket() != (t2.requiredTicket())) {
 
 											doubleMoves.add(new DoubleMove(player.piece(), source, t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
 
 										}
 									}
+
+									if (player.hasAtLeast(Ticket.SECRET, 2)) {
+
+										doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, destination1, Ticket.SECRET, destination2));
+
+									}
+
+									if (player.has(t2.requiredTicket()) && player.has(Ticket.SECRET)) {
+
+										doubleMoves.add(new DoubleMove(player.piece(), source, t1.requiredTicket(), destination1, Ticket.SECRET, destination2));
+
+									}
 								}
 							}
-
 						}
 					}
 				}
 			}
 		}
 
-						// TODO consider the rules of secret moves here
-						//  add moves to the destination via a secret ticket if there are any left with the player
-
-//						if (a.has(Ticket.SECRET)) {
-
-//							doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, destination1, destination2));
-
 		return doubleMoves;
 
 	}
-
-
-
 }
