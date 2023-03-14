@@ -2,15 +2,16 @@ package uk.ac.bris.cs.scotlandyard.model;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+
+import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.*;
+import uk.ac.bris.cs.scotlandyard.model.Move.*;
+
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
 import uk.ac.bris.cs.scotlandyard.model.Piece.Detective;
 import uk.ac.bris.cs.scotlandyard.model.Piece.MrX;
-import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -34,11 +35,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
         // LOCAL VARIABLES:
         private final GameSetup setup;
-        private ImmutableSet<Piece> remaining;
+        private ImmutableSet<Piece> remaining;          // pieces remaining on the board
         private ImmutableList<LogEntry> log;
         private final Player mrX;
         private final List<Player> detectives;
-        private ImmutableSet<Move> moves;
+        private ImmutableSet<Move> moves;               // currently possible/ available moves
         private ImmutableSet<Piece> winner;
 
 
@@ -49,11 +50,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
                 final ImmutableList<LogEntry> log,
                 final Player mrX,
                 final List<Player> detectives) {
+
+            // setup checks (check available moves and graph are not empty)
             if (setup != null) this.setup = setup;
             else throw new IllegalArgumentException("Setup is null!");
             if (setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
             if (setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph is empty!");
 
+            // initialise log, remaining, and the players by checking they are not null
             this.remaining = remaining;
             this.log = log;
             if (mrX != null) this.mrX = mrX;
@@ -61,16 +65,21 @@ public final class MyGameStateFactory implements Factory<GameState> {
             if (mrX.isDetective()) throw new IllegalArgumentException("MrX cannot be a detective!");
             if (!detectives.contains(null)) this.detectives = detectives;
             else throw new NullPointerException("At least one detective is null!");
-            this.winner = ImmutableSet.of();                                    // make winners initially empty;
 
-            for (Player detective : detectives) {                                // check ticket allocation
+            // make some fields initially empty (MAY NEED TO CHANGE LATER)
+            this.winner = ImmutableSet.of();
+            this.moves = ImmutableSet.of();
+
+            // check detectives have correct tickets
+            for (Player detective : detectives) {
                 if (detective.has(ScotlandYard.Ticket.SECRET) || detective.has(ScotlandYard.Ticket.DOUBLE))
                     throw new IllegalArgumentException("Detectives have wrong tickets!");
-
             }
+
+            // check detectives do not share the same location or colour
             for (int i = 0; i < detectives.size(); i++) {                        // iterate over detectives to find duplicates/overlaps
                 for (int j = i + 1; j < detectives.size(); j++) {                    // start at j=i+1 to avoid more than one check between each detective
-                    if (detectives.get(i).equals(detectives.get(j)) || detectives.get(i).location() == detectives.get(j).location())
+                    if (detectives.get(i).equals(detectives.get(j)) || detectives.get(i).location() == detectives.get(j).location())  // MAYBE CHANGE THE .equals TO APPLY TO COLOUR ATTRIBUTE
                         throw new IllegalArgumentException("Duplicate/overlapping detectives!");
                 }
             }
@@ -90,10 +99,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
         public ImmutableSet<Piece> getPlayers() {
 
             // stream the detectives into a set and add mrX.
-            Set<Piece> mySet = this.detectives.stream().map(Player::piece).collect(Collectors.toSet());
-            mySet.add(mrX.piece());
+            Set<Piece> playerSet = this.detectives.stream().map(Player::piece).collect(Collectors.toSet());
+            playerSet.add(mrX.piece());
 
-            return ImmutableSet.copyOf(mySet);
+            // then return an immutable copy of the new set
+            return ImmutableSet.copyOf(playerSet);
         }
 
         @Nonnull
@@ -152,12 +162,53 @@ public final class MyGameStateFactory implements Factory<GameState> {
             return null;
         }
 
+        @Nonnull
         @Override
         public GameState advance(Move move) {
-            return null;
+            if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
+
+            move.accept(new Visitor<Void>(){  //DOES THIS NEED TO BE ... = move.accept(...) ???
+                @Override public Void visit(SingleMove singleMove){
+
+                    // the player that is moving (does it need to be nulled at start?)
+                    Player player = null;
+
+                    // figure out which player is moving based on the piece
+                    for (Player d : detectives) if (singleMove.commencedBy() == d.piece()) player = d;
+                    if (singleMove.commencedBy().isMrX()) player = mrX;
+                    else throw new IllegalArgumentException("Not a player!");
+
+                    // commence the move
+                    player.use(singleMove.ticket);              // use ticket
+                    player.at(singleMove.destination);          // move player
+
+                    // record move in the logbook
+                    if (player.isMrX()) {
+                        // alt if condition: (setup.moves.get(moves.size()))
+                        if (!ScotlandYard.REVEAL_MOVES.contains(log.size())) LogEntry.hidden(singleMove.ticket);
+                        else LogEntry.reveal(singleMove.ticket, singleMove.destination);
+                    }
+
+                    return null;
+                }
+                @Override public Void visit(DoubleMove doubleMove){
+
+                    mrX.use(doubleMove.tickets());
+                    mrX.at(doubleMove.destination2);
+
+                    return null;
+                }
+            });
+
+
+
+            return new MyGameState(setup, remaining, log, mrX, detectives);
         }
 
+
+
     }
+
 
 
 }
