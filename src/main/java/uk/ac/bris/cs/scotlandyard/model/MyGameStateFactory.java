@@ -37,8 +37,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
         private final GameSetup setup;
         private ImmutableSet<Piece> remaining;          // pieces remaining on the board
         private ImmutableList<LogEntry> log;
-        private final Player mrX;
-        private final List<Player> detectives;
+        private Player mrX;
+        private List<Player> detectives;
         private ImmutableSet<Move> moves;               // currently possible/ available moves
         private ImmutableSet<Piece> winner;
 
@@ -165,42 +165,48 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Nonnull
         @Override
         public GameState advance(Move move) {
-            if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
+            //if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
 
+            // TODO: figure out whether this implementation holds when getAvailableMoves is operational
             move.accept(new Visitor<Void>(){  //DOES THIS NEED TO BE ... = move.accept(...) ???
                 @Override public Void visit(SingleMove singleMove){
 
-                    // the player that is moving (does it need to be nulled at start?)
-                    Player player = null;
+                    if (singleMove.commencedBy().isMrX()){
+                        // move mrX and use tickets
+                        mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
 
-                    // figure out which player is moving based on the piece
-                    for (Player d : detectives) if (singleMove.commencedBy() == d.piece()) player = d;
-                    if (singleMove.commencedBy().isMrX()) player = mrX;
-                    else throw new IllegalArgumentException("Not a player!");
+                        //TODO: create log entry
 
-                    // commence the move
-                    player.use(singleMove.ticket);              // use ticket
-                    player.at(singleMove.destination);          // move player
 
-                    // record move in the logbook
-                    if (player.isMrX()) {
-                        // alt if condition: (setup.moves.get(moves.size()))
-                        if (!ScotlandYard.REVEAL_MOVES.contains(log.size())) LogEntry.hidden(singleMove.ticket);
-                        else LogEntry.reveal(singleMove.ticket, singleMove.destination);
                     }
+
+                    else for (int i = 0, detectivesSize = detectives.size(); i < detectivesSize; i++) {
+                            Player d = detectives.get(i);
+                            if (d.piece().equals(singleMove.commencedBy())) {
+                                //move the detective and give the used ticket to mrX
+                                mrX = mrX.give(singleMove.ticket);
+                                List<Player> dets = new ArrayList<>(detectives);
+                                dets.set(i, d.use(singleMove.ticket).at(singleMove.destination));
+                                detectives = dets;
+                            }
+                        }
+
 
                     return null;
                 }
                 @Override public Void visit(DoubleMove doubleMove){
 
-                    mrX.use(doubleMove.tickets());
-                    mrX.at(doubleMove.destination2);
+                    // perform two single moves derived from the double move
+                    mrX = mrX.use(Ticket.DOUBLE);
+                    visit(new SingleMove(doubleMove.commencedBy(), doubleMove.source(), doubleMove.ticket1, doubleMove.destination1));
+                    visit(new SingleMove(doubleMove.commencedBy(), doubleMove.destination1, doubleMove.ticket2, doubleMove.destination2));
 
                     return null;
                 }
+
+
+
             });
-
-
 
             return new MyGameState(setup, remaining, log, mrX, detectives);
         }
