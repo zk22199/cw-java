@@ -165,9 +165,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Nonnull
         @Override
         public GameState advance(Move move) {
+            //TODO: uncomment below code when getAvailableMoves() is operational
             //if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
-
-            // TODO: figure out whether this implementation holds when getAvailableMoves is operational
             move.accept(new Visitor<Void>(){  //DOES THIS NEED TO BE ... = move.accept(...) ???
                 @Override public Void visit(SingleMove singleMove){
 
@@ -175,8 +174,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
                         // move mrX and use tickets
                         mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
 
-                        //TODO: create log entry
+                        //TODO: create log entry (partial, not fully done!)
+                        List<LogEntry> logAsArray = new ArrayList<>(log);
 
+                        if (ScotlandYard.REVEAL_MOVES.contains(log.size() + 1)) logAsArray.add(LogEntry.reveal(singleMove.ticket, singleMove.destination));
+                        else logAsArray.add(LogEntry.hidden(singleMove.ticket));
+
+                        log = ImmutableList.copyOf(logAsArray);
 
                     }
 
@@ -185,12 +189,25 @@ public final class MyGameStateFactory implements Factory<GameState> {
                             if (d.piece().equals(singleMove.commencedBy())) {
                                 //move the detective and give the used ticket to mrX
                                 mrX = mrX.give(singleMove.ticket);
-                                List<Player> dets = new ArrayList<>(detectives);
-                                dets.set(i, d.use(singleMove.ticket).at(singleMove.destination));
-                                detectives = dets;
+                                List<Player> detsArrayList = new ArrayList<>(detectives);
+                                detsArrayList.set(i, d.use(singleMove.ticket).at(singleMove.destination));
+                                detectives = detsArrayList;
+
+                                /*
+                                The reason we have to use an iterative loop instead of a foreach loop such as:
+                                for ( Player d : detectives ) { ... }
+                                is because java will create a new variable d each time that does not actually
+                                reflect the live value of that detective, so any changes we make to it e.g. updating
+                                location will not be passed to the real detective.
+
+                                Then, with our iterative loop we have to create a new ArrayList to edit the original,
+                                as even though it was not explicitly declared as an ImmutableList the .copyOf function
+                                would have returned one, which means we wouldn't be able to perform .set() on its elements.
+                                An ArrayList does not have this problem.
+                                 */
+
                             }
                         }
-
 
                     return null;
                 }
