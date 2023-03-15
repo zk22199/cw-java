@@ -174,12 +174,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
                         // move mrX and use tickets
                         mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
 
-                        //TODO: create log entry (partial, not fully done!)
+                        // Create log entry (either a reveal or hidden entry based on the setup.moves map):
                         List<LogEntry> logAsArray = new ArrayList<>(log);
-
-                        if (ScotlandYard.REVEAL_MOVES.contains(log.size() + 1)) logAsArray.add(LogEntry.reveal(singleMove.ticket, singleMove.destination));
+                        if (setup.moves.get(log.size())) logAsArray.add(LogEntry.reveal(singleMove.ticket, singleMove.destination));
                         else logAsArray.add(LogEntry.hidden(singleMove.ticket));
-
                         log = ImmutableList.copyOf(logAsArray);
 
                     }
