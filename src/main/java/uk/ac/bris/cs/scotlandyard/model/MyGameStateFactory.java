@@ -153,13 +153,32 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Nonnull
         @Override
         public ImmutableSet<Piece> getWinner() {
-            return winner;
+
+            /*
+            TODO: code the winning conditions.
+             DETECTIVES win if MrX cannot safely travel to another destination
+             or if a detective finishes his move on MrX's station
+             --
+             MRX wins if the log is full and detectives do not land on him on the last move
+             or if detectives can no longer move any of their pieces
+            */
+
+            ImmutableSet<Piece> winnerDetectives = ImmutableSet.copyOf(this.detectives.stream().map(Player::piece).collect(Collectors.toSet()));
+
+            // detectives win:
+            for (Player d : detectives) if (d.location() == mrX.location()) return winnerDetectives;
+            //if (getAvailableMoves().isEmpty()) return winnerDetectives;
+
+            // mrX win:
+            else if (log.size() == setup.moves.size()) return ImmutableSet.of(mrX.piece());
+
+            return ImmutableSet.of();
         }
 
         @Nonnull
         @Override
         public ImmutableSet<Move> getAvailableMoves() {
-            return null;
+            return ImmutableSet.of();
         }
 
         @Nonnull
@@ -170,6 +189,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
             move.accept(new Visitor<Void>(){  //DOES THIS NEED TO BE ... = move.accept(...) ???
                 @Override public Void visit(SingleMove singleMove){
 
+                    // MrX move:
                     if (singleMove.commencedBy().isMrX()){
                         // move mrX and use tickets
                         mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
@@ -182,6 +202,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
                     }
 
+                    // Each detective move:
                     else for (int i = 0, detectivesSize = detectives.size(); i < detectivesSize; i++) {
                             Player d = detectives.get(i);
                             if (d.piece().equals(singleMove.commencedBy())) {
@@ -190,6 +211,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
                                 List<Player> detsArrayList = new ArrayList<>(detectives);
                                 detsArrayList.set(i, d.use(singleMove.ticket).at(singleMove.destination));
                                 detectives = detsArrayList;
+
+                                //TODO: remove available moves from this detective,
+                                // i.e. when getAvailableMoves() is called there are no moves for this Player
 
                                 /*
                                 The reason we have to use an iterative loop instead of a foreach loop such as:
