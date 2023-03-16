@@ -83,7 +83,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
                         throw new IllegalArgumentException("Duplicate/overlapping detectives!");
                 }
             }
-
         }
 
 
@@ -178,21 +177,39 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Nonnull
         @Override
         public ImmutableSet<Move> getAvailableMoves() {
-            return ImmutableSet.of();
+
+            Set<Move> availableMoves = new HashSet<>();
+
+            if (remaining.contains(mrX.piece())) {
+                availableMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
+                availableMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
+            }
+            for (Player d : detectives) if (remaining.contains(d.piece())) availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+            return ImmutableSet.copyOf(availableMoves);
         }
 
         @Nonnull
         @Override
         public GameState advance(Move move) {
-            //TODO: uncomment below code when getAvailableMoves() is operational
-            //if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
-            move.accept(new Visitor<Void>(){  //DOES THIS NEED TO BE ... = move.accept(...) ???
+
+            // create a new hashset to store all the remaining players of this turn
+            // if remaining is empty then add all players back to the set
+            HashSet<Piece> playerSet = new HashSet<>(remaining);
+
+            // check move is legal
+            moves = getAvailableMoves();
+            if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
+            move.accept(new Visitor<Void>(){  // MAY NEED CHANGING TO COMPLY WITH VISITOR DESIGN PATTERN
                 @Override public Void visit(SingleMove singleMove){
 
                     // MrX move:
                     if (singleMove.commencedBy().isMrX()){
                         // move mrX and use tickets
                         mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
+                        if (playerSet.contains(mrX.piece())) {
+                            playerSet.remove(mrX.piece());
+                            playerSet.addAll(detectives.stream().map(Player::piece).collect(Collectors.toSet()));
+                        }
 
                         // Create log entry (either a reveal or hidden entry based on the setup.moves map):
                         List<LogEntry> logAsArray = new ArrayList<>(log);
@@ -212,8 +229,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
                                 detsArrayList.set(i, d.use(singleMove.ticket).at(singleMove.destination));
                                 detectives = detsArrayList;
 
-                                //TODO: remove available moves from this detective,
-                                // i.e. when getAvailableMoves() is called there are no moves for this Player
+                                // remove available moves from this detective,
+                                playerSet.remove(d.piece());
+                                if (playerSet.isEmpty()) playerSet.add(mrX.piece());
 
                                 /*
                                 The reason we have to use an iterative loop instead of a foreach loop such as:
@@ -242,18 +260,72 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
                     return null;
                 }
-
-
-
             });
 
-            return new MyGameState(setup, remaining, log, mrX, detectives);
+            return new MyGameState(setup, ImmutableSet.copyOf(playerSet), log, mrX, detectives);
         }
-
-
-
     }
 
+    private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
 
+        // create an empty collection to store all the SingleMove we generate
+        HashSet<SingleMove> singleMoves = new HashSet<>();
+
+        for(int destination : setup.graph.adjacentNodes(source)) {
+            // make sure that no detectives are present in the destination
+            if (detectives.stream().allMatch(d -> d.location() != destination)) {
+                for (Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
+                    // if the player has the required tickets add the move
+                    if (player.has(t.requiredTicket())) singleMoves.add(new SingleMove(player.piece(), source, t.requiredTicket(), destination));
+                    if (player.has(Ticket.SECRET)) singleMoves.add(new SingleMove(player.piece(), source, Ticket.SECRET, destination));
+                }
+            }
+        }
+
+        // return the collection of moves
+        return singleMoves;
+    }
+
+    private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
+
+        // create an empty collection to store all the DoubleMove we generate
+        HashSet<DoubleMove> doubleMoves = new HashSet<>();
+
+        // check there are any moves left after a single move, and that player has double ticket
+        // note: makeSingleMoves check may be unnecessary, play around with it later and see if tests still pass
+        if (!makeSingleMoves(setup, detectives, player, source).isEmpty() && player.has(Ticket.DOUBLE) && setup.moves.size() > 1) {
+            for (int d1 : setup.graph.adjacentNodes(source)) if (detectives.stream().allMatch(d -> d.location() != d1)){
+                for (Transport t1 : setup.graph.edgeValueOrDefault(source, d1, ImmutableSet.of())) {
+
+                    // create a copy of the player to simulate using tickets
+                    Player p1 = new Player(player.piece(), player.tickets(), player.location());
+                    Ticket t1used = null;
+
+                    // store the ticket they use for the first move
+                    if (p1.has(t1.requiredTicket())) t1used = t1.requiredTicket();
+
+                    // now for the second move; this kind of follows a decision tree:
+                    // if the player has at least one secret ticket they can use it for the first or second move
+                    // and if they have at least 2 it is possible to use it for both
+                    if (t1used != null) {
+                        p1 = p1.use(t1used);
+                        for (int d2 : setup.graph.adjacentNodes(d1)) if (detectives.stream().allMatch(d -> d.location() != d2)){
+                            for (Transport t2 : setup.graph.edgeValueOrDefault(d1, d2, ImmutableSet.of())) {
+                                if (p1.has(t2.requiredTicket())) doubleMoves.add(new DoubleMove(player.piece(), source, t1used, d1, t2.requiredTicket(), d2));                  // normal ticket use
+                                if (p1.has(Ticket.SECRET)) {
+                                    doubleMoves.add(new DoubleMove(player.piece(), source, t1used, d1, Ticket.SECRET, d2));                                                     // second move secret
+                                    if (p1.has(t2.requiredTicket())) doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, d1, t2.requiredTicket(), d2));       // first move secret
+                                }
+                                if (p1.hasAtLeast(Ticket.SECRET, 2)) doubleMoves.add(new DoubleMove(player.piece(), source, Ticket.SECRET, d1, Ticket.SECRET, d2));       // two secret moves
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // return collection of double moves
+        return doubleMoves;
+    }
 
 }
