@@ -162,14 +162,31 @@ public final class MyGameStateFactory implements Factory<GameState> {
              or if detectives can no longer move any of their pieces
             */
 
+            // store the detectives as a set
             ImmutableSet<Piece> winnerDetectives = ImmutableSet.copyOf(this.detectives.stream().map(Player::piece).collect(Collectors.toSet()));
 
-            // detectives win:
-            for (Player d : detectives) if (d.location() == mrX.location()) return winnerDetectives;
-            //if (getAvailableMoves().isEmpty()) return winnerDetectives;
+            // update the moves for this round
+            moves = getAvailableMoves();
 
-            // mrX win:
-            else if (log.size() == setup.moves.size()) return ImmutableSet.of(mrX.piece());
+            // DETECTIVE MAJOR W:
+            // a detective captures MrX:
+            for (Player d : detectives) if (d.location() == mrX.location()) return winnerDetectives;
+
+            // MrX is stuck
+            if (remaining.contains(mrX.piece()) && moves.isEmpty()) return winnerDetectives;
+
+
+            // COMMON MRX DUB:
+            // all detectives are stuck (no tickets):
+            if (detectives.stream().allMatch(d -> d.tickets().isEmpty())) return ImmutableSet.of(mrX.piece());
+
+            //if (    ) return ImmutableSet.of(mrX.piece());
+
+//            for (Player d : detectives) d.tickets().forEach((ticket, integer) -> );
+
+
+            // MrX evades capture for the whole game:
+            if (log.size() == setup.moves.size() && remaining.isEmpty()) return ImmutableSet.of(mrX.piece());
 
             return ImmutableSet.of();
         }
@@ -178,13 +195,22 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Override
         public ImmutableSet<Move> getAvailableMoves() {
 
+            // check that MrX is not captured:
+            for (Player d : detectives) if (d.location() == mrX.location()) return ImmutableSet.of();
+
+            // create new set to store the moves
             Set<Move> availableMoves = new HashSet<>();
 
+            // add MrX moves if it is his turn
             if (remaining.contains(mrX.piece())) {
                 availableMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
                 availableMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
             }
+
+            // add the detectives moves if it is their turn:
             for (Player d : detectives) if (remaining.contains(d.piece())) availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+
+            // return the moves
             return ImmutableSet.copyOf(availableMoves);
         }
 
