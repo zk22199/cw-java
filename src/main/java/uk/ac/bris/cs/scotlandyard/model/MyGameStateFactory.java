@@ -178,8 +178,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
                     break;
                 }
 
-            // MrX is stuck
+            // MrX is stuck (nowhere to go):
             if (remaining.contains(mrX.piece()) && moves.isEmpty()) winner =  winnerDetectives;
+
+            //
 
 
             // COMMON MRX DUB:
@@ -197,9 +199,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Override
         public ImmutableSet<Move> getAvailableMoves() {
 
-            // check that MrX is not captured:
-            for (Player d : detectives) if (d.location() == mrX.location()) return ImmutableSet.of();
-
             // create new set to store the moves
             Set<Move> availableMoves = new HashSet<>();
 
@@ -211,8 +210,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
                 }
 
                 // add the detectives moves if it is their turn:
-                for (Player d : detectives) if (remaining.contains(d.piece())) availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
-
+                for (Player d : detectives) if (remaining.contains(d.piece())) {
+                    availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+                }
             }
 
             // return the moves
@@ -253,6 +253,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
                     // Each detective move:
                     else for (int i = 0, detectivesSize = detectives.size(); i < detectivesSize; i++) {
                             Player d = detectives.get(i);
+
                             if (d.piece().equals(singleMove.commencedBy())) {
                                 //move the detective and give the used ticket to mrX
                                 mrX = mrX.give(singleMove.ticket);
@@ -276,10 +277,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
                                 would have returned one, which means we wouldn't be able to perform .set() on its elements.
                                 An ArrayList does not have this problem.
                                  */
-
                             }
                         }
-
                     return null;
                 }
                 @Override public Void visit(DoubleMove doubleMove){
@@ -295,6 +294,29 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
             return new MyGameState(setup, ImmutableSet.copyOf(playerSet), log, mrX, detectives);
         }
+
+        // HELPER METHODS:
+
+        private void remainingAdd(Player player){
+            HashSet<Piece> playerSet = new HashSet<>(remaining);
+            playerSet.add(player.piece());
+            remaining = ImmutableSet.copyOf(playerSet);
+        }
+
+        private void remainingAddAll(List<Player> players){
+            HashSet<Piece> playerSet = new HashSet<>(remaining);
+            players.forEach(p -> playerSet.add(p.piece()));
+            remaining = ImmutableSet.copyOf(playerSet);
+        }
+
+        private void remainingRemove(Player player){
+            HashSet<Piece> playerSet = new HashSet<>(remaining);
+            playerSet.remove(player.piece());
+            remaining = ImmutableSet.copyOf(playerSet);
+        }
+
+
+
     }
 
     private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
