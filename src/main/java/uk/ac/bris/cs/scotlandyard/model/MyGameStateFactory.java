@@ -121,24 +121,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
         public Optional<TicketBoard> getPlayerTickets(Piece piece) {
 
             // if piece is a detective or mrX return their tickets via the getCount function
-            //TODO make this a lambda expression
-
             for (Player d : detectives) {
                 if (d.piece().equals(piece)) {
-                    return Optional.of(new TicketBoard() {
-                        @Override               // ticketboard passes each ticket type it wants to know about to this function during its construction
-                        public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
-                            return d.tickets().get(ticket);
-                        }
-                    });
+                    // ticketboard passes each ticket type it wants to know about to this function during its construction
+                    return Optional.of(ticket -> d.tickets().get(ticket));
                 }
             }
-            if (piece.isMrX()) return Optional.of(new TicketBoard() {
-                @Override
-                public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
-                    return mrX.tickets().get(ticket);
-                }
-            });
+            if (piece.isMrX()) return Optional.of(ticket -> mrX.tickets().get(ticket));
+
             return Optional.empty();            // if not a player, return empty
 
         }
@@ -153,15 +143,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Override
         public ImmutableSet<Piece> getWinner() {
 
-            /*
-            TODO: code the winning conditions.
-             DETECTIVES win if MrX cannot safely travel to another destination
-             or if a detective finishes his move on MrX's station
-             --
-             MRX wins if the log is full and detectives do not land on him on the last move
-             or if detectives can no longer move any of their pieces
-            */
-
             // store the detectives as a set
             ImmutableSet<Piece> winnerDetectives = ImmutableSet.copyOf(this.detectives.stream().map(Player::piece).collect(Collectors.toSet()));
 
@@ -175,13 +156,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // a detective captures MrX:
             for (Player d : detectives) if (d.location() == mrX.location()) {
                     winner = winnerDetectives;
-                    break;
+                    break; // save us checking more; the detectives have already won
                 }
 
             // MrX is stuck (nowhere to go):
             if (remaining.contains(mrX.piece()) && moves.isEmpty()) winner =  winnerDetectives;
-
-            //
 
 
             // COMMON MRX DUB:
@@ -264,8 +243,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
                                 // remove available moves from this detective,
                                 remainingRemove(d);
                                 if (remaining.isEmpty()) remainingAdd(mrX);
-//                                playerSet.remove(d.piece());
-//                                if (playerSet.isEmpty()) playerSet.add(mrX.piece());
 
                                 /*
                                 The reason we have to use an iterative loop instead of a foreach loop such as:
