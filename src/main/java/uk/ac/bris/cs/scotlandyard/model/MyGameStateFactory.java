@@ -211,7 +211,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
                 // add the detectives moves if it is their turn:
                 for (Player d : detectives) if (remaining.contains(d.piece())) {
-                    availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+                    Set<SingleMove> thisDetMove = makeSingleMoves(setup, detectives, d, d.location());
+                    if (thisDetMove.isEmpty()) remainingRemove(d);      // if detective cannot move then remove them from remaining
+                    else availableMoves.addAll(thisDetMove);
                 }
             }
 
@@ -223,10 +225,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Override
         public GameState advance(Move move) {
 
-            // create a new hashset to store all the remaining players of this turn
-            // if remaining is empty then add all players back to the set
-            HashSet<Piece> playerSet = new HashSet<>(remaining);
-
             // check move is legal
             moves = getAvailableMoves();
             if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
@@ -237,9 +235,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
                     if (singleMove.commencedBy().isMrX()){
                         // move mrX and use tickets
                         mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
-                        if (playerSet.contains(mrX.piece())) {
-                            playerSet.remove(mrX.piece());
-                            playerSet.addAll(detectives.stream().map(Player::piece).collect(Collectors.toSet()));
+
+                        // switch to detective turn
+                        if (remaining.contains(mrX.piece())){
+                            remainingRemove(mrX);
+                            remainingAddAll(detectives);
                         }
 
                         // Create log entry (either a reveal or hidden entry based on the setup.moves map):
@@ -262,8 +262,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
                                 detectives = detsArrayList;
 
                                 // remove available moves from this detective,
-                                playerSet.remove(d.piece());
-                                if (playerSet.isEmpty()) playerSet.add(mrX.piece());
+                                remainingRemove(d);
+                                if (remaining.isEmpty()) remainingAdd(mrX);
+//                                playerSet.remove(d.piece());
+//                                if (playerSet.isEmpty()) playerSet.add(mrX.piece());
 
                                 /*
                                 The reason we have to use an iterative loop instead of a foreach loop such as:
@@ -292,7 +294,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
                 }
             });
 
-            return new MyGameState(setup, ImmutableSet.copyOf(playerSet), log, mrX, detectives);
+            return new MyGameState(setup, remaining, log, mrX, detectives);
         }
 
         // HELPER METHODS:
