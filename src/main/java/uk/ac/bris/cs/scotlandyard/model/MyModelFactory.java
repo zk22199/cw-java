@@ -27,7 +27,7 @@ public final class MyModelFactory implements Factory<Model> {
 	private final class MyModel implements Model {
 
 		private List<Observer> observers;
-		private Board currentBoard;
+		private Board.GameState game;
 
 		private MyModel(
 				final GameSetup setup,
@@ -35,6 +35,7 @@ public final class MyModelFactory implements Factory<Model> {
 				final ImmutableList<Player> detectives) {
 
 			this.observers = List.of();
+			this.game = new MyGameStateFactory().build(setup, mrX, detectives);
 
 		}
 
@@ -43,7 +44,7 @@ public final class MyModelFactory implements Factory<Model> {
 		@Nonnull
 		@Override
 		public Board getCurrentBoard() {
-			return null;
+			return game;
 		}
 
 		@Override
@@ -66,7 +67,7 @@ public final class MyModelFactory implements Factory<Model> {
 
 		@Override
 		public void chooseMove(@Nonnull Move move) {
-
+			game.advance(move);
 		}
 	}
 
