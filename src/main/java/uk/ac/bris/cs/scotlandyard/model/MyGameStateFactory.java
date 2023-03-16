@@ -180,13 +180,29 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // all detectives are stuck (no tickets):
             if (detectives.stream().allMatch(d -> d.tickets().isEmpty())) return ImmutableSet.of(mrX.piece());
 
+            // horrendous workaround that passes a grand total of one test
+            // delete when brain cells reenter brain
+            // this pretends that mrX has gone and its now the detectives turn
+            Set<Piece> originalRemaining = Set.copyOf(remaining);
+            Set<Piece> newRemaining = new HashSet<>(remaining);
+            newRemaining.remove(mrX);
+            //newRemaining.addAll(winnerDetectives);
+            remaining = ImmutableSet.copyOf(newRemaining);
+            moves = getAvailableMoves();
+            if (moves.isEmpty()) return ImmutableSet.of(mrX.piece());
+            remaining = ImmutableSet.copyOf(originalRemaining);
+            moves = getAvailableMoves();
+
+            //Map<Ticket, Integer> tkMap = detectives.stream().collect(Collectors.toCollection());
+            //boolean emptyMap = tkMap.values().stream().allMatch(t -> t.equals(0));
+
             //if (    ) return ImmutableSet.of(mrX.piece());
 
 //            for (Player d : detectives) d.tickets().forEach((ticket, integer) -> );
 
 
             // MrX evades capture for the whole game:
-            if (log.size() == setup.moves.size() && remaining.isEmpty()) return ImmutableSet.of(mrX.piece());
+            if (log.size() >= setup.moves.size()) return ImmutableSet.of(mrX.piece());
 
             return ImmutableSet.of();
         }
@@ -201,8 +217,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // create new set to store the moves
             Set<Move> availableMoves = new HashSet<>();
 
-            // add MrX moves if it is his turn
-            if (remaining.contains(mrX.piece())) {
+            // add MrX moves if it is his turn and there are still moves to play
+            if (remaining.contains(mrX.piece()) && log.size() < setup.moves.size()) {
                 availableMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
                 availableMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
             }
