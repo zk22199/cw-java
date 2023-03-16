@@ -168,43 +168,29 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // update the moves for this round
             moves = getAvailableMoves();
 
+            // winner is initially empty
+            winner = ImmutableSet.of();
+
             // DETECTIVE MAJOR W:
             // a detective captures MrX:
-            for (Player d : detectives) if (d.location() == mrX.location()) return winnerDetectives;
+            for (Player d : detectives) if (d.location() == mrX.location()) {
+                    winner = winnerDetectives;
+                    break;
+                }
 
             // MrX is stuck
-            if (remaining.contains(mrX.piece()) && moves.isEmpty()) return winnerDetectives;
+            if (remaining.contains(mrX.piece()) && moves.isEmpty()) winner =  winnerDetectives;
 
 
             // COMMON MRX DUB:
             // all detectives are stuck (no tickets):
-            if (detectives.stream().allMatch(d -> d.tickets().isEmpty())) return ImmutableSet.of(mrX.piece());
-
-            // horrendous workaround that passes a grand total of one test
-            // delete when brain cells reenter brain
-            // this pretends that mrX has gone and its now the detectives turn
-            Set<Piece> originalRemaining = Set.copyOf(remaining);
-            Set<Piece> newRemaining = new HashSet<>(remaining);
-            newRemaining.remove(mrX);
-            //newRemaining.addAll(winnerDetectives);
-            remaining = ImmutableSet.copyOf(newRemaining);
-            moves = getAvailableMoves();
-            if (moves.isEmpty()) return ImmutableSet.of(mrX.piece());
-            remaining = ImmutableSet.copyOf(originalRemaining);
-            moves = getAvailableMoves();
-
-            //Map<Ticket, Integer> tkMap = detectives.stream().collect(Collectors.toCollection());
-            //boolean emptyMap = tkMap.values().stream().allMatch(t -> t.equals(0));
-
-            //if (    ) return ImmutableSet.of(mrX.piece());
-
-//            for (Player d : detectives) d.tickets().forEach((ticket, integer) -> );
-
+            if (detectives.stream().allMatch(d -> d.tickets().values().stream().allMatch(v -> v == 0))) winner = ImmutableSet.of(mrX.piece());
 
             // MrX evades capture for the whole game:
-            if (log.size() >= setup.moves.size()) return ImmutableSet.of(mrX.piece());
+            if (log.size() >= setup.moves.size()) winner = ImmutableSet.of(mrX.piece());
 
-            return ImmutableSet.of();
+            // return winner
+            return winner;
         }
 
         @Nonnull
@@ -217,14 +203,17 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // create new set to store the moves
             Set<Move> availableMoves = new HashSet<>();
 
-            // add MrX moves if it is his turn and there are still moves to play
-            if (remaining.contains(mrX.piece()) && log.size() < setup.moves.size()) {
-                availableMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
-                availableMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
-            }
+            if (winner.isEmpty()){
+                // add MrX moves if it is his turn and there are still moves to play
+                if (remaining.contains(mrX.piece()) && log.size() < setup.moves.size()) {
+                    availableMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
+                    availableMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
+                }
 
-            // add the detectives moves if it is their turn:
-            for (Player d : detectives) if (remaining.contains(d.piece())) availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+                // add the detectives moves if it is their turn:
+                for (Player d : detectives) if (remaining.contains(d.piece())) availableMoves.addAll(makeSingleMoves(setup, detectives, d, d.location()));
+
+            }
 
             // return the moves
             return ImmutableSet.copyOf(availableMoves);
