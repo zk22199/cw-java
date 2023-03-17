@@ -7,7 +7,6 @@ import javax.annotation.Nonnull;
 import com.google.common.collect.ImmutableSet;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 
-import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -21,7 +20,7 @@ public final class MyModelFactory implements Factory<Model> {
 			Player mrX,
 			ImmutableList<Player> detectives) {
 
-		return new MyModel(setup, mrX, ImmutableList.of());
+		return new MyModel(setup, mrX, detectives);
 	}
 
 	private final class MyModel implements Model {
@@ -38,8 +37,6 @@ public final class MyModelFactory implements Factory<Model> {
 			this.game = new MyGameStateFactory().build(setup, mrX, detectives);
 
 		}
-
-
 
 		@Nonnull
 		@Override
@@ -67,8 +64,17 @@ public final class MyModelFactory implements Factory<Model> {
 
 		@Override
 		public void chooseMove(@Nonnull Move move) {
-			game.advance(move);
+			// advance the GameState by the move
+			game = game.advance(move);
+
+			// if no winner then notify all observers of MOVE_MADE
+			if (game.getWinner().isEmpty()) observers.forEach(o -> o.onModelChanged(game, Observer.Event.MOVE_MADE));
+
+			// else there is a winner and notify all observers of GAME_OVER
+			else observers.forEach(o -> o.onModelChanged(game, Observer.Event.GAME_OVER));
+
 		}
+
 	}
 
 }

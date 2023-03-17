@@ -35,7 +35,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
         // LOCAL VARIABLES:
         private final GameSetup setup;
-        private ImmutableSet<Piece> remaining;          // pieces remaining on the board
+        private ImmutableSet<Piece> remaining;          // pieces remaining on this turn
         private ImmutableList<LogEntry> log;
         private Player mrX;
         private List<Player> detectives;
@@ -144,7 +144,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
         public ImmutableSet<Piece> getWinner() {
 
             // store the detectives as a set
-            ImmutableSet<Piece> winnerDetectives = ImmutableSet.copyOf(this.detectives.stream().map(Player::piece).collect(Collectors.toSet()));
+            ImmutableSet<Piece> winnerDetectives = ImmutableSet.copyOf(detectives.stream().map(Player::piece).collect(Collectors.toSet()));
 
             // update the moves for this round
             moves = getAvailableMoves();
@@ -203,6 +203,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Nonnull
         @Override
         public GameState advance(Move move) {
+
+            //temporary: update winner field
+            //winner = getWinner();
 
             // check move is legal
             moves = getAvailableMoves();
@@ -273,6 +276,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
             return new MyGameState(setup, remaining, log, mrX, detectives);
         }
+
 
         // HELPER METHODS:
 
