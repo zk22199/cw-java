@@ -162,13 +162,12 @@ public final class MyGameStateFactory implements Factory<GameState> {
             // MrX is stuck (nowhere to go):
             if (remaining.contains(mrX.piece()) && moves.isEmpty()) winner =  winnerDetectives;
 
-
             // COMMON MRX DUB:
             // all detectives are stuck (no tickets):
             if (detectives.stream().allMatch(d -> d.tickets().values().stream().allMatch(v -> v == 0))) winner = ImmutableSet.of(mrX.piece());
 
             // MrX evades capture for the whole game:
-            if (log.size() >= setup.moves.size()) winner = ImmutableSet.of(mrX.piece());
+            if (log.size() >= setup.moves.size() && remaining.contains(mrX.piece())) winner = ImmutableSet.of(mrX.piece());
 
             // return winner
             return winner;
