@@ -203,13 +203,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
         @Override
         public GameState advance(Move move) {
 
-            //temporary: update winner field
-            //winner = getWinner();
-
             // check move is legal
             moves = getAvailableMoves();
             if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
-            move.accept(new Visitor<Void>(){  // MAY NEED CHANGING TO COMPLY WITH VISITOR DESIGN PATTERN
+
+            move.accept(new Visitor<Void>(){  // NEEDS CHANGING TO COMPLY WITH VISITOR DESIGN PATTERN
                 @Override public Void visit(SingleMove singleMove){
 
                     // MrX move:
