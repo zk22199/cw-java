@@ -86,6 +86,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
         }
 
 
+
+
         // IMPLEMENTATION METHODS:
         @Nonnull
         @Override
@@ -199,6 +201,53 @@ public final class MyGameStateFactory implements Factory<GameState> {
             return ImmutableSet.copyOf(availableMoves);
         }
 
+        private Player movePlayer(Piece piece, int destination, Ticket ticket){
+
+            // get the player associated with the piece
+            Player player = getPlayer(piece);
+
+            // use players ticket and move them to their destination
+            player = player.use(ticket).at(destination);
+
+            if (player.isMrX()){
+
+                // use MrX's ticket:
+                //mrX = mrX.use(ticket).at(destination);
+
+                // switch to the detectives turn by adding all detectives to the 'remaining' list
+                remaining = ImmutableSet.<Piece>builder().addAll(detectives.stream().map(Player::piece).collect(Collectors.toSet())).build();
+
+                // Create log entry (either a reveal or hidden entry based on the setup.moves map)
+                LogEntry newLogEntry = LogEntry.hidden(ticket);
+                if (setup.moves.get(log.size())) newLogEntry = LogEntry.reveal(ticket, destination);
+
+                // add the log entry to the logbook
+                log = ImmutableList.<LogEntry>builder().addAll(log).add(newLogEntry).build();
+            }
+
+            else {
+                // award the used ticket to MrX
+                mrX = mrX.give(ticket);
+
+                // remove the detective from the list of players waiting to make their move:
+                remainingRemove(player);
+
+                // if all detectives have moved it is now the detectives go:
+                if (remaining.isEmpty()) remaining = ImmutableSet.<Piece>builder().add(mrX.piece()).build();
+
+                // detectives = ImmutableList.copyOf(detectives.stream().map(d -> d.piece().equals(player.piece()) ? player : d).toList());
+
+                //remaining = ImmutableSet.copyOf(Set.copyOf(remaining).remove(player.piece()));
+
+            }
+
+            return player;
+        }
+
+
+
+
+
         @Nonnull
         @Override
         public GameState advance(Move move) {
@@ -207,69 +256,20 @@ public final class MyGameStateFactory implements Factory<GameState> {
             moves = getAvailableMoves();
             if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
 
-            move.accept(new Visitor<Void>(){  // NEEDS CHANGING TO COMPLY WITH VISITOR DESIGN PATTERN
-                @Override public Void visit(SingleMove singleMove){
-
-                    // MrX move:
-                    if (singleMove.commencedBy().isMrX()){
-                        // move mrX and use tickets
-                        mrX = mrX.use(singleMove.ticket).at(singleMove.destination);
-
-                        // switch to detective turn
-                        if (remaining.contains(mrX.piece())){
-                            remainingRemove(mrX);
-                            remainingAddAll(detectives);
-                        }
-
-                        // Create log entry (either a reveal or hidden entry based on the setup.moves map):
-                        List<LogEntry> logAsArray = new ArrayList<>(log);
-                        if (setup.moves.get(log.size())) logAsArray.add(LogEntry.reveal(singleMove.ticket, singleMove.destination));
-                        else logAsArray.add(LogEntry.hidden(singleMove.ticket));
-                        log = ImmutableList.copyOf(logAsArray);
-
-                    }
-
-                    // Each detective move:
-                    else for (int i = 0, detectivesSize = detectives.size(); i < detectivesSize; i++) {
-                            Player d = detectives.get(i);
-
-                            if (d.piece().equals(singleMove.commencedBy())) {
-                                //move the detective and give the used ticket to mrX
-                                mrX = mrX.give(singleMove.ticket);
-                                List<Player> detsArrayList = new ArrayList<>(detectives);
-                                detsArrayList.set(i, d.use(singleMove.ticket).at(singleMove.destination));
-                                detectives = detsArrayList;
-
-                                // remove available moves from this detective,
-                                remainingRemove(d);
-                                if (remaining.isEmpty()) remainingAdd(mrX);
-
-                                /*
-                                The reason we have to use an iterative loop instead of a foreach loop such as:
-                                for ( Player d : detectives ) { ... }
-                                is because java will create a new variable d each time that does not actually
-                                reflect the live value of that detective, so any changes we make to it e.g. updating
-                                location will not be passed to the real detective.
-
-                                Then, with our iterative loop we have to create a new ArrayList to edit the original,
-                                as even though it was not explicitly declared as an ImmutableList the .copyOf function
-                                would have returned one, which means we wouldn't be able to perform .set() on its elements.
-                                An ArrayList does not have this problem.
-                                 */
-                            }
-                        }
-                    return null;
-                }
-                @Override public Void visit(DoubleMove doubleMove){
+            Player player = move.accept(new Visitor<>(){
+                @Override public Player visit(SingleMove singleMove){ return movePlayer(singleMove.commencedBy(), singleMove.destination, singleMove.ticket); }
+                @Override public Player visit(DoubleMove doubleMove){
 
                     // perform two single moves derived from the double move
                     mrX = mrX.use(Ticket.DOUBLE);
-                    visit(new SingleMove(doubleMove.commencedBy(), doubleMove.source(), doubleMove.ticket1, doubleMove.destination1));
-                    visit(new SingleMove(doubleMove.commencedBy(), doubleMove.destination1, doubleMove.ticket2, doubleMove.destination2));
+                    mrX = visit(new SingleMove(doubleMove.commencedBy(), doubleMove.source(), doubleMove.ticket1, doubleMove.destination1));
+                    mrX = visit(new SingleMove(doubleMove.commencedBy(), doubleMove.destination1, doubleMove.ticket2, doubleMove.destination2));
 
-                    return null;
+                    return mrX;
                 }
             });
+
+            updatePlayer(player);
 
             return new MyGameState(setup, remaining, log, mrX, detectives);
         }
@@ -277,17 +277,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
         // HELPER METHODS:
 
-        private void remainingAdd(Player player){
-            HashSet<Piece> playerSet = new HashSet<>(remaining);
-            playerSet.add(player.piece());
-            remaining = ImmutableSet.copyOf(playerSet);
-        }
-
-        private void remainingAddAll(List<Player> players){
-            HashSet<Piece> playerSet = new HashSet<>(remaining);
-            players.forEach(p -> playerSet.add(p.piece()));
-            remaining = ImmutableSet.copyOf(playerSet);
-        }
 
         private void remainingRemove(Player player){
             HashSet<Piece> playerSet = new HashSet<>(remaining);
@@ -295,9 +284,25 @@ public final class MyGameStateFactory implements Factory<GameState> {
             remaining = ImmutableSet.copyOf(playerSet);
         }
 
+        private Player getPlayer(Piece piece){
+            for (Player d : detectives) {
+                if (d.piece().equals(piece)) { return d; }
+            }
+            if (piece.isMrX()) return mrX;
+            else throw new IllegalArgumentException("Not a player!");
+        }
 
 
-    }
+        private void updatePlayer(Player player){
+            if (player.piece().isDetective()) {
+                detectives = ImmutableList.copyOf(detectives.stream().map(d -> d.piece().equals(player.piece()) ? player : d).toList());
+            }
+            else if (player.piece().isMrX()) mrX = player;
+            else throw new IllegalArgumentException("Not a player!");
+        }
+        }
+
+
 
     private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
 
@@ -325,7 +330,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
         HashSet<DoubleMove> doubleMoves = new HashSet<>();
 
         // check there are any moves left after a single move, and that player has double ticket
-        // note: makeSingleMoves check may be unnecessary, play around with it later and see if tests still pass
         if (!makeSingleMoves(setup, detectives, player, source).isEmpty() && player.has(Ticket.DOUBLE) && setup.moves.size() > 1) {
             for (int d1 : setup.graph.adjacentNodes(source)) if (detectives.stream().allMatch(d -> d.location() != d1)){
                 for (Transport t1 : setup.graph.edgeValueOrDefault(source, d1, ImmutableSet.of())) {
