@@ -199,8 +199,15 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
             // return the moves
             return ImmutableSet.copyOf(availableMoves);
+
         }
 
+        /**
+         * @param piece the players piece to be moved
+         * @param destination the final node for the player to move to
+         * @param ticket the ticket used for the transport
+         * @return the player after performing these actions
+         */
         private Player movePlayer(Piece piece, int destination, Ticket ticket){
 
             // get the player associated with the piece
@@ -229,24 +236,33 @@ public final class MyGameStateFactory implements Factory<GameState> {
                 // award the used ticket to MrX
                 mrX = mrX.give(ticket);
 
-                // remove the detective from the list of players waiting to make their move:
+                // remove the detective from the list of players waiting to make their move
                 remainingRemove(player);
 
                 // if all detectives have moved it is now the detectives go:
                 if (remaining.isEmpty()) remaining = ImmutableSet.<Piece>builder().add(mrX.piece()).build();
 
-                // detectives = ImmutableList.copyOf(detectives.stream().map(d -> d.piece().equals(player.piece()) ? player : d).toList());
-
-                //remaining = ImmutableSet.copyOf(Set.copyOf(remaining).remove(player.piece()));
-
             }
-
             return player;
         }
 
 
+        /**
+         * @param piece the players piece to be moved
+         * @param doubleMove the doubleMove to be executed
+         * @return the player after performing both these moves
+         */
+        private Player movePlayerTwice(Piece piece, DoubleMove doubleMove){
 
+            // perform a full single move, inclusive of the updatePlayer function. use a DoubleMove ticket
+            Player player = movePlayer(piece, doubleMove.destination1, doubleMove.ticket1);
+            player = player.use(Ticket.DOUBLE);
+            updatePlayer(player);
 
+            // perform the second single move and return the player as it is
+            player = movePlayer(piece, doubleMove.destination2, doubleMove.ticket2);
+            return player;
+        }
 
         @Nonnull
         @Override
@@ -256,34 +272,30 @@ public final class MyGameStateFactory implements Factory<GameState> {
             moves = getAvailableMoves();
             if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
 
+            // use the visitor pattern to return a player that has executed the move(s):
             Player player = move.accept(new Visitor<>(){
                 @Override public Player visit(SingleMove singleMove){ return movePlayer(singleMove.commencedBy(), singleMove.destination, singleMove.ticket); }
-                @Override public Player visit(DoubleMove doubleMove){
-
-                    // perform two single moves derived from the double move
-                    mrX = mrX.use(Ticket.DOUBLE);
-                    mrX = visit(new SingleMove(doubleMove.commencedBy(), doubleMove.source(), doubleMove.ticket1, doubleMove.destination1));
-                    mrX = visit(new SingleMove(doubleMove.commencedBy(), doubleMove.destination1, doubleMove.ticket2, doubleMove.destination2));
-
-                    return mrX;
-                }
+                @Override public Player visit(DoubleMove doubleMove){ return movePlayerTwice(doubleMove.commencedBy(), doubleMove); }
             });
 
+            // call a subroutine to overwrite the current mrX/detective with the new, moved piece.
             updatePlayer(player);
 
+            // update the gamestate
             return new MyGameState(setup, remaining, log, mrX, detectives);
         }
 
 
         // HELPER METHODS:
 
-
+        /** Removes a player from the list of remaining players */
         private void remainingRemove(Player player){
             HashSet<Piece> playerSet = new HashSet<>(remaining);
             playerSet.remove(player.piece());
             remaining = ImmutableSet.copyOf(playerSet);
         }
 
+        /** Returns a copy of the player based off their piece */
         private Player getPlayer(Piece piece){
             for (Player d : detectives) {
                 if (d.piece().equals(piece)) { return d; }
@@ -292,9 +304,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
             else throw new IllegalArgumentException("Not a player!");
         }
 
-
+        /** Replaces the players instance by identifying whether it is a detective or mrX */
         private void updatePlayer(Player player){
             if (player.piece().isDetective()) {
+                // replace the detective that has been moved with the new one, keep others the same
                 detectives = ImmutableList.copyOf(detectives.stream().map(d -> d.piece().equals(player.piece()) ? player : d).toList());
             }
             else if (player.piece().isMrX()) mrX = player;
